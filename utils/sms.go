@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"github.com/UniqueStudio/open-platform/config"
@@ -90,7 +91,18 @@ func sendTencentSMS(ctx context.Context, vsignId, vtemplateId uint, paramSet, ph
 		return nil, err
 	}
 
-	return pkg.TencentSMSToSMSResp(resp), nil
+	tencentResps := pkg.TencentSMSToSMSResp(resp)
+	for _, tencentResp := range *tencentResps {
+		if tencentResp.ErrCode != "" {
+			err = fmt.Errorf("send sms to %s failed, err_code: %s, msg: %s", tencentResp.PhoneNumber, tencentResp.ErrCode, tencentResp.Message)
+			span.RecordError(err)
+			span.SetStatus(codes.Error, err.Error())
+			zapx.WithContext(apmCtx).Error("send sms request error")
+			return nil, err
+		}
+	}
+
+	return tencentResps, nil
 }
 
 // TODO:
